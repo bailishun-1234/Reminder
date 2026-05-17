@@ -15,8 +15,9 @@ export function setupMicButton(onResult) {
   const textCancel = document.getElementById('textCancel');
 
   let pressTimer = null;
-  let isRecording = false;
-  let longPressFired = false;  // 标记长按已触发，阻止后续 click
+  let longPressFired = false;
+  let speechPromise = null;     // 当前的语音识别 Promise
+  let speechAborted = false;   // 标记语音被用户主动中止
 
   // --- 单击 → 文本输入（仅当不是长按时触发）---
   fab.addEventListener('click', () => {
@@ -25,79 +26,84 @@ export function setupMicButton(onResult) {
   });
 
   // --- 长按 → 语音识别 ---
+  function startLongPress() {
+    longPressFired = true;
+    fab.classList.add('recording');
+    fabIcon.textContent = '🔴';
+    tryVibrate(50);
+    speechAborted = false;
+    speechPromise = speech.startRecognition()
+      .then(text => {
+        speechPromise = null;
+        if (text) onResult(text);
+        // 语音成功 → 不弹文本输入
+      })
+      .catch(() => {
+        speechPromise = null;
+        if (!speechAborted) {
+          // 语音失败且不是用户主动中止 → 回退到文本输入
+          showTextInput();
+        }
+      });
+  }
+
   fab.addEventListener('touchstart', () => {
-    pressTimer = setTimeout(() => {
-      longPressFired = true;
-      isRecording = true;
-      fab.classList.add('recording');
-      fabIcon.textContent = '🔴';
-      tryVibrate(50);
-      doRecord(onResult);
-    }, 200);
+    pressTimer = setTimeout(startLongPress, 200);
   }, { passive: true });
 
   fab.addEventListener('touchend', () => {
-    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
-    if (isRecording) {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+    // 立即恢复按钮外观
+    fab.classList.remove('recording');
+    fabIcon.textContent = '🎤';
+    if (speechPromise) {
+      speechAborted = true;
       speech.stopRecognition();
+      speechPromise = null;
     }
   });
 
   fab.addEventListener('touchcancel', () => {
-    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
-    if (isRecording) {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+    fab.classList.remove('recording');
+    fabIcon.textContent = '🎤';
+    if (speechPromise) {
+      speechAborted = true;
       speech.stopRecognition();
+      speechPromise = null;
     }
   });
 
   // 桌面端：mousedown/mouseup 模拟长按
-  fab.addEventListener('mousedown', (e) => {
-    pressTimer = setTimeout(() => {
-      longPressFired = true;
-      isRecording = true;
-      fab.classList.add('recording');
-      fabIcon.textContent = '🔴';
-      tryVibrate(50);
-      doRecord(onResult);
-    }, 200);
+  fab.addEventListener('mousedown', () => {
+    pressTimer = setTimeout(startLongPress, 200);
   });
 
   fab.addEventListener('mouseup', () => {
-    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
-    if (isRecording) {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+    fab.classList.remove('recording');
+    fabIcon.textContent = '🎤';
+    if (speechPromise) {
+      speechAborted = true;
       speech.stopRecognition();
+      speechPromise = null;
     }
   });
 
   fab.addEventListener('mouseleave', () => {
-    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
-    if (isRecording) {
-      speech.stopRecognition();
-    }
-  });
-
-  // --- 语音识别 ---
-  async function doRecord(onResult) {
-    try {
-      const text = await speech.startRecognition();
-      finishRecording();
-      if (text) {
-        onResult(text);
-      } else {
-        showTextInput();
-      }
-    } catch (err) {
-      finishRecording();
-      showTextInput();
-    }
-  }
-
-  function finishRecording() {
-    isRecording = false;
-    longPressFired = false;
+    clearTimeout(pressTimer);
+    pressTimer = null;
     fab.classList.remove('recording');
     fabIcon.textContent = '🎤';
-  }
+    if (speechPromise) {
+      speechAborted = true;
+      speech.stopRecognition();
+      speechPromise = null;
+    }
+  });
 
   // --- 文本输入提交/取消 ---
   textSubmit.addEventListener('click', () => {
