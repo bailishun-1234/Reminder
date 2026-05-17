@@ -16,16 +16,18 @@ export function setupMicButton(onResult) {
 
   let pressTimer = null;
   let isRecording = false;
+  let longPressFired = false;  // 标记长按已触发，阻止后续 click
 
-  // --- 单击 → 文本输入 ---
+  // --- 单击 → 文本输入（仅当不是长按时触发）---
   fab.addEventListener('click', () => {
-    if (isRecording) return;
+    if (longPressFired) { longPressFired = false; return; }
     showTextInput();
   });
 
   // --- 长按 → 语音识别 ---
   fab.addEventListener('touchstart', () => {
     pressTimer = setTimeout(() => {
+      longPressFired = true;
       isRecording = true;
       fab.classList.add('recording');
       fabIcon.textContent = '🔴';
@@ -51,6 +53,7 @@ export function setupMicButton(onResult) {
   // 桌面端：mousedown/mouseup 模拟长按
   fab.addEventListener('mousedown', (e) => {
     pressTimer = setTimeout(() => {
+      longPressFired = true;
       isRecording = true;
       fab.classList.add('recording');
       fabIcon.textContent = '🔴';
@@ -91,6 +94,7 @@ export function setupMicButton(onResult) {
 
   function finishRecording() {
     isRecording = false;
+    longPressFired = false;
     fab.classList.remove('recording');
     fabIcon.textContent = '🎤';
   }
