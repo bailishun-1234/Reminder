@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="images/icons/icon-192.svg">
+  <title>智能提醒器</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- 先清理 Service Worker 缓存，再加载模块 -->
+  <script>
+  (function() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then(function(reg) {
+        if (reg) {
+          reg.unregister();
+          if (window.caches) {
+            caches.keys().then(function(names) {
+              return Promise.all(names.map(function(n) { return caches.delete(n); }));
+            });
+          }
+        }
+      }).catch(function() {});
+    }
+  })();
+  </script>
+</head>
+<body>
+  <!-- Header -->
+  <header id="app-header">
+    <div class="header-top">
+      <h1>⏰ 智能提醒器</h1>
+      <div class="header-right">
+        <button id="refreshBtn" class="header-btn" title="刷新">🔄</button>
+        <span class="header-clock" id="clockDisplay">00:00</span>
+      </div>
+    </div>
+    <div class="header-next" id="nextReminder">下个提醒：--</div>
+  </header>
+
+  <!-- Main todo list -->
+  <main id="mainContent">
+    <div id="todoList" class="todo-list"></div>
+    <div id="emptyState" class="empty-state hidden">
+      <div class="empty-icon">📋</div>
+      <p>还没有提醒事项</p>
+      <p class="empty-hint">点击下方麦克风添加</p>
+    </div>
+  </main>
+
+  <!-- FAB: Mic button -->
+  <div id="fabContainer">
+    <button id="micFab" class="fab" aria-label="语音添加">
+      <span class="fab-icon">🎤</span>
+    </button>
+  </div>
+
+  <!-- Text input fallback (hidden by default) -->
+  <div id="textInputBar" class="text-input-bar hidden">
+    <input type="text" id="textInput" placeholder="输入待办事项，如：明天下午3点开会" maxlength="200">
+    <button id="textSubmit" class="btn-primary">添加</button>
+    <button id="textCancel" class="btn-text">取消</button>
+  </div>
+
+  <!-- Voice confirm dialog -->
+  <div id="confirmDialog" class="dialog-overlay hidden">
+    <div class="dialog">
+      <div class="dialog-header">🎤 识别结果</div>
+      <div class="dialog-body">
+        <p class="dialog-text" id="confirmText"></p>
+        <div class="time-select-row">
+          <label>⏰ 提醒时间</label>
+          <div class="time-input-group">
+            <input type="datetime-local" id="confirmTime">
+            <button id="clearTimeBtn" class="btn-small" title="清除时间，待排期">待排期</button>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button id="confirmCancel" class="btn-secondary">取消</button>
+        <button id="confirmOk" class="btn-primary">确认添加 ✅</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reminder dialog -->
+  <div id="reminderDialog" class="dialog-overlay reminder-overlay hidden">
+    <div class="dialog reminder-dialog">
+      <div class="reminder-icon">⏰</div>
+      <div class="reminder-title">提醒！</div>
+      <div class="reminder-text" id="reminderText"></div>
+      <div class="reminder-time" id="reminderTime"></div>
+      <div class="reminder-actions">
+        <button id="remindSilent" class="btn-secondary">🔇 静音</button>
+        <button id="remindSnooze" class="btn-secondary">⏰ 延后</button>
+        <button id="remindDone" class="btn-primary">✅ 完成</button>
+      </div>
+      <div id="snoozeOptions" class="snooze-options hidden">
+        <button data-snooze="15min">15 分钟</button>
+        <button data-snooze="1h">1 小时</button>
+        <button data-snooze="tonight">今晚</button>
+        <button data-snooze="tomorrow">明天</button>
+        <button data-snooze="weekend">周末</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail actions sheet -->
+  <div id="actionSheet" class="dialog-overlay hidden">
+    <div class="action-sheet">
+      <div class="action-sheet-title" id="actionSheetTitle">操作</div>
+      <div class="action-list" id="actionList">
+        <button data-action="togglePin">📌 置顶</button>
+        <button data-action="forward">⏩ 提前</button>
+        <button data-action="snooze">⏰ 延后</button>
+        <button data-action="editTime">🕐 修改时间</button>
+        <button data-action="complete">✅ 标记完成</button>
+        <button data-action="delete" class="action-danger">🗑️ 删除</button>
+      </div>
+      <button class="action-cancel" id="actionCancel">取消</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js?v=20260517"></script>
+</body>
+</html>

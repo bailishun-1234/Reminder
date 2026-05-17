@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#1a1a2e"/>
+  <circle cx="256" cy="256" r="256" fill="#16213e"/>
+  <g transform="translate(256,256) scale(2.2)">
+    <!-- Bell body -->
+    <path d="M-8,-40 C-8,-52 8,-52 8,-40 L16,-12 C16,-12 20,-4 24,0 L-24,0 C-20,-4 -16,-12 -16,-12 Z" fill="#e94560" stroke="#ff5a75" stroke-width="1.5"/>
+    <!-- Bell top -->
+    <circle cx="0" cy="-44" r="5" fill="#e94560" stroke="#ff5a75" stroke-width="1"/>
+    <!-- Striker -->
+    <circle cx="0" cy="4" r="5" fill="#e94560"/>
+    <!-- Bottom arc -->
+    <path d="M-20,4 C-20,16 -8,24 0,24 C8,24 20,16 20,4" fill="none" stroke="#e94560" stroke-width="3" stroke-linecap="round"/>
+    <!-- Ring lines -->
+    <path d="M-30,-8 L-26,-4" stroke="#e94560" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M30,-8 L26,-4" stroke="#e94560" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M0,-32 L0,-28" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+    <!-- Exclamation -->
+    <text x="0" y="-2" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="14" font-weight="bold">!</text>
+  </g>
+</svg>
