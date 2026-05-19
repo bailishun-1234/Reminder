@@ -1,11 +1,133 @@
 /* ============================================
    sw.js — Service Worker
-   网络优先策略缓存 + 系统通知唤醒
+   网络优先缓存 + 独立后台提醒检查 + 通知唤醒
    ============================================ */
 
 const CACHE = 'reminder-v3';
+const DB = 'ReminderDB';
+const STORE = 'items';
+const CHECK_INTERVAL = 15000; // 15 秒检查一次（后台仍会降频但比页面可靠）
 
-// 网络优先：从网络获取，失败则用缓存
+// ====== IndexedDB 工具（SW 独立读取） ======
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function getDueItems() {
+  const now = Date.now();
+  const db = await openDB();
+  const tx = db.transaction(STORE, 'readonly');
+  const store = tx.objectStore(STORE);
+  const all = await new Promise((res, rej) => {
+    const r = store.getAll();
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  db.close();
+  return (all || []).filter(item => {
+    if (!item.time) return false;
+    if (item.status === 'done') return false;
+    if (item.snoozeUntil && item.snoozeUntil > now) return false;
+    if (item.lastRemindTime && (now - item.lastRemindTime < 30000)) return false;
+    return item.time <= now;
+  });
+}
+
+// ====== 后台轮询 ======
+
+let checkTimer = null;
+
+function startBackgroundCheck() {
+  if (checkTimer) return;
+  checkTimer = setInterval(async () => {
+    try {
+      const items = await getDueItems();
+      for (const item of items) {
+        showNotification(item);
+        break; // 一次只提醒一个
+      }
+    } catch (e) {
+      // SW 静默失败
+    }
+  }, CHECK_INTERVAL);
+}
+
+function stopBackgroundCheck() {
+  if (checkTimer) {
+    clearInterval(checkTimer);
+    checkTimer = null;
+  }
+}
+
+function showNotification(item) {
+  const timeStr = item.time
+    ? new Date(item.time).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    : '提醒时间到';
+  self.registration.showNotification('⏰ ' + item.text, {
+    body: timeStr,
+    tag: 'reminder-' + item.id,
+    renotify: true,
+    requireInteraction: true,
+    vibrate: [200, 100, 200, 100, 500],
+    icon: '/images/icons/icon-192.svg',
+    badge: '/images/icons/icon-192.svg'
+  });
+}
+
+// ====== 生命周期 ======
+
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then(names =>
+      Promise.all(names.filter(n => n !== CACHE).map(n => caches.delete(n)))
+    ).then(() => self.clients.claim())
+  );
+  // 激活后立即开始后台检查
+  startBackgroundCheck();
+});
+
+// 有客户端连接时开始检查，全部断开时停止
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'REMINDER') {
+    const item = event.data.item;
+    showNotification(item);
+  }
+});
+
+// 客户端连接状态变化
+self.addEventListener('connect', () => startBackgroundCheck());
+
+// 点击通知 → 聚焦或打开应用
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(clientList => {
+        for (const client of clientList) {
+          if ('focus' in client) return client.focus();
+        }
+        return clients.openWindow('/');
+      })
+  );
+});
+
+// ====== 缓存策略 ======
+
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
@@ -15,50 +137,5 @@ self.addEventListener('fetch', (event) => {
         return res;
       })
       .catch(() => caches.match(event.request))
-  );
-});
-
-// 安装：跳过等待
-self.addEventListener('install', () => {
-  self.skipWaiting();
-});
-
-// 激活：清理旧缓存，接管所有客户端
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then(names =>
-      Promise.all(names.filter(n => n !== CACHE).map(n => caches.delete(n)))
-    ).then(() => self.clients.claim())
-  );
-});
-
-// 收到页面消息 → 显示系统通知
-self.addEventListener('message', (event) => {
-  if (!event.data || event.data.type !== 'REMINDER') return;
-  const item = event.data.item;
-  self.registration.showNotification('⏰ ' + item.text, {
-    body: item.time ? new Date(item.time).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '提醒时间到',
-    tag: 'reminder-' + item.id,
-    renotify: true,
-    requireInteraction: true,
-    vibrate: [200, 100, 200, 100, 500],
-    icon: '/images/icons/icon-192.svg',
-    badge: '/images/icons/icon-192.svg'
-  });
-});
-
-// 点击通知 → 聚焦或打开应用
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then(clientList => {
-        // 有已打开的窗口则聚焦
-        for (const client of clientList) {
-          if ('focus' in client) return client.focus();
-        }
-        // 否则打开新窗口
-        return clients.openWindow('/');
-      })
   );
 });
