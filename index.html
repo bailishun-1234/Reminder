@@ -10,23 +10,6 @@
   <link rel="apple-touch-icon" href="images/icons/icon-192.svg">
   <title>智能提醒器</title>
   <link rel="stylesheet" href="css/style.css">
-  <!-- 先清理 Service Worker 缓存，再加载模块 -->
-  <script>
-  (function() {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistration().then(function(reg) {
-        if (reg) {
-          reg.unregister();
-          if (window.caches) {
-            caches.keys().then(function(names) {
-              return Promise.all(names.map(function(n) { return caches.delete(n); }));
-            });
-          }
-        }
-      }).catch(function() {});
-    }
-  })();
-  </script>
 </head>
 <body>
   <!-- Header -->

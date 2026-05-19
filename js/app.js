@@ -349,9 +349,9 @@ function getWeekendOffset() {
 // --- 启动 ---
 document.addEventListener('DOMContentLoaded', init);
 
-// 清理残留 Service Worker（避免缓存问题）
+// 注册 Service Worker（系统通知唤醒、离线缓存）
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistration().then(reg => {
-    if (reg) reg.unregister();
-  }).catch(() => {});
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
 }

@@ -71,6 +71,7 @@ function triggerReminder(item) {
     continuousStopFn = null;
   }
 
+  // 触发铃声/震动
   if (count === 0) {
     audio.playSingle();
   } else if (count === 1) {
@@ -79,11 +80,23 @@ function triggerReminder(item) {
     continuousStopFn = audio.playContinuous();
   }
 
+  // 发送通知到 Service Worker（后台也能弹系统通知）
+  notifySW(item);
+
   if (onRemind) {
     onRemind(item, count);
   }
 
   flashTitle(item.text);
+}
+
+/** 通知 Service Worker 弹出系统通知 */
+function notifySW(item) {
+  if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
+  navigator.serviceWorker.controller.postMessage({
+    type: 'REMINDER',
+    item: { id: item.id, text: item.text, time: item.time }
+  });
 }
 
 /** 标记提醒已处理，允许下个提醒触发 */
