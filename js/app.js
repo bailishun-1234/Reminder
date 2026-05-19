@@ -45,19 +45,21 @@ async function init() {
       btn.addEventListener('click', handleAction);
     });
 
-    // 用户手势初始化音频（解决移动端 AudioContext 静默）
-    const warmAudio = () => audio.initOnUserGesture();
-    document.addEventListener('touchstart', warmAudio, { once: true });
-    document.addEventListener('click', warmAudio, { once: true });
+    // 用户首次手势：初始化音频 + 请求通知权限
+    const firstTouch = () => {
+      audio.initOnUserGesture();
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+      document.removeEventListener('touchstart', firstTouch);
+      document.removeEventListener('click', firstTouch);
+    };
+    document.addEventListener('touchstart', firstTouch, { once: true });
+    document.addEventListener('click', firstTouch, { once: true });
     // 每次提醒弹窗交互时也重新激活音频通道
-    document.getElementById('remindSilent').addEventListener('click', warmAudio);
-    document.getElementById('remindDone').addEventListener('click', warmAudio);
-    document.getElementById('remindSnooze').addEventListener('click', warmAudio);
-
-    // 请求通知权限（用于系统级提醒）
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
+    document.getElementById('remindSilent').addEventListener('click', () => audio.initOnUserGesture());
+    document.getElementById('remindDone').addEventListener('click', () => audio.initOnUserGesture());
+    document.getElementById('remindSnooze').addEventListener('click', () => audio.initOnUserGesture());
 
     // 刷新按钮
     document.getElementById('refreshBtn').addEventListener('click', () => {
