@@ -6,7 +6,7 @@
 const CACHE = 'reminder-v4';
 const DB = 'ReminderDB';
 const STORE = 'items';
-const CHECK_INTERVAL = 15000; // 15 秒检查一次（后台仍会降频但比页面可靠）
+const CHECK_INTERVAL = 5000; // 5 秒检查一次（Chrome 后台最低会钳制到约 30 秒）
 
 // ====== IndexedDB 工具（SW 独立读取） ======
 

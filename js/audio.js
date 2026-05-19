@@ -63,6 +63,8 @@ function playSound(freq, durSec, vol) {
   } catch (e) { /* WA fail */ }
 }
 
+let flashTimers = []; // 所有闪烁定时器，统一清理用
+
 function flashScreen() {
   if (!document.body) return;
   if (!flashOverlay) {
@@ -71,7 +73,28 @@ function flashScreen() {
     document.body.appendChild(flashOverlay);
   }
   let c = 0;
-  const t = setInterval(() => { flashOverlay.style.opacity = c % 2 ? '0' : '1'; c++; if (c >= 6) { clearInterval(t); flashOverlay.style.opacity = '0'; } }, 200);
+  const t = setInterval(() => {
+    flashOverlay.style.opacity = c % 2 ? '0' : '1';
+    c++;
+    if (c >= 6) {
+      clearInterval(t);
+      flashOverlay.style.opacity = '0';
+      // 从全局数组中移除
+      const idx = flashTimers.indexOf(t);
+      if (idx >= 0) flashTimers.splice(idx, 1);
+    }
+  }, 200);
+  flashTimers.push(t);
+  return t;
+}
+
+function clearFlashes() {
+  flashTimers.forEach(t => clearInterval(t));
+  flashTimers = [];
+  if (flashOverlay) {
+    flashOverlay.remove();
+    flashOverlay = null;
+  }
 }
 
 function vib(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
@@ -124,5 +147,6 @@ export function playContinuous() {
 export function stopAll() {
   stopFlag = true; isPlaying = false;
   if (continuousTimer) { clearTimeout(continuousTimer); continuousTimer = null; }
+  clearFlashes();
   try { if (a1) a1.pause(); if (a2) a2.pause(); } catch (e) {}
 }
