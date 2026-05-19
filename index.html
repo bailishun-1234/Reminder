@@ -9,6 +9,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="images/icons/icon-192.svg">
   <title>智能提醒器</title>
+  <meta name="build-time" content="2026-05-20 12:00">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -19,9 +20,12 @@
       <div class="header-right">
         <button id="refreshBtn" class="header-btn" title="刷新">🔄</button>
         <span class="header-clock" id="clockDisplay">00:00</span>
+        <span class="header-version" id="versionDisplay"></span>
       </div>
     </div>
-    <div class="header-next" id="nextReminder">下个提醒：--</div>
+    <div class="header-row2">
+      <span class="header-next" id="nextReminder">下个提醒：--</span>
+    </div>
   </header>
 
   <!-- Main todo list -->
@@ -107,6 +111,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260517"></script>
+  <script type="module" src="js/app.js?v=20260520b"></script>
 </body>
 </html>

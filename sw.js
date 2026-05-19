@@ -3,7 +3,7 @@
    网络优先缓存 + 独立后台提醒检查 + 通知唤醒
    ============================================ */
 
-const CACHE = 'reminder-v3';
+const CACHE = 'reminder-v4';
 const DB = 'ReminderDB';
 const STORE = 'items';
 const CHECK_INTERVAL = 15000; // 15 秒检查一次（后台仍会降频但比页面可靠）
@@ -79,10 +79,31 @@ function showNotification(item) {
     tag: 'reminder-' + item.id,
     renotify: true,
     requireInteraction: true,
-    vibrate: [200, 100, 200, 100, 500],
-    icon: '/images/icons/icon-192.svg',
-    badge: '/images/icons/icon-192.svg'
+    vibrate: [200, 100, 200, 100, 500]
   });
+  // 更新数据库，避免每 15 秒重复弹通知
+  updateReminderAfterNotify(item.id);
+}
+
+async function updateReminderAfterNotify(id) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    const data = await new Promise((res, rej) => {
+      const r = store.get(id);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    if (data) {
+      data.lastRemindTime = Date.now();
+      data.remindCount = (data.remindCount || 0) + 1;
+      store.put(data);
+    }
+    tx.oncomplete = () => db.close();
+  } catch (e) {
+    // SW 静默失败
+  }
 }
 
 // ====== 生命周期 ======
@@ -95,7 +116,13 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(names =>
       Promise.all(names.filter(n => n !== CACHE).map(n => caches.delete(n)))
-    ).then(() => self.clients.claim())
+    ).then(() => {
+      self.clients.claim();
+      // 通知所有窗口：新版本已激活，请刷新
+      self.clients.matchAll().then(cls => {
+        cls.forEach(c => c.postMessage({ type: 'NEW_VERSION' }));
+      });
+    })
   );
   // 激活后立即开始后台检查
   startBackgroundCheck();
@@ -106,6 +133,9 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'REMINDER') {
     const item = event.data.item;
     showNotification(item);
+  }
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });
 
@@ -129,6 +159,14 @@ self.addEventListener('notificationclick', (event) => {
 // ====== 缓存策略 ======
 
 self.addEventListener('fetch', (event) => {
+  // HTML 始终走网络（不缓存），确保每次打开都是最新版本
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+  // 其他资源：网络优先，缓存作为后备
   event.respondWith(
     fetch(event.request)
       .then(res => {

@@ -11,6 +11,8 @@ let intervalId = null;
 let onRemind = null;
 let continuousStopFn = null;
 let isReminding = false;  // 防止并发提醒
+let pendingReminder = null; // 后台触发时暂存，等页面可见时再弹
+let onVisibilityChange = null; // 可见性恢复时回调
 const CHECK_INTERVAL = 1000;
 
 /**
@@ -71,7 +73,16 @@ function triggerReminder(item) {
     continuousStopFn = null;
   }
 
-  // 触发铃声/震动
+  // 页面不可见（其他应用打开）：只发 SW 通知，不弹窗不响铃，等页面恢复时再弹
+  if (document.hidden) {
+    pendingReminder = { item, count };
+    notifySW(item);
+    // 页面直接发通知（SW 可能被浏览器终止）
+    notifyPageNotification(item);
+    return;
+  }
+
+  // 页面可见：触发铃声/震动
   if (count === 0) {
     audio.playSingle();
   } else if (count === 1) {
@@ -99,10 +110,50 @@ function notifySW(item) {
   });
 }
 
+/** 页面直接发系统通知（后备，SW 可能被终止） */
+function notifyPageNotification(item) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    new Notification('⏰ ' + item.text, {
+      body: item.time ? new Date(item.time).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '提醒时间到',
+      tag: 'reminder-' + item.id,
+      requireInteraction: true,
+      vibrate: [200, 100, 200, 100, 500],
+      silent: false
+    });
+  } catch (e) { /* ignore */ }
+}
+
 /** 标记提醒已处理，允许下个提醒触发 */
 export function markHandled() {
   isReminding = false;
 }
+
+/** 获取后台触发的待弹窗提醒 */
+export function getPendingReminder() {
+  return pendingReminder;
+}
+
+/** 清除后台触发的待弹窗提醒 */
+export function clearPendingReminder() {
+  pendingReminder = null;
+}
+
+/** 注册可见性恢复回调（由 app.js 设置） */
+export function onVisibilityChanged(callback) {
+  onVisibilityChange = callback;
+}
+
+// 监听页面恢复可见，触发暂存的提醒
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && pendingReminder) {
+    const pr = pendingReminder;
+    pendingReminder = null;
+    if (onVisibilityChange) {
+      onVisibilityChange(pr.item, pr.count);
+    }
+  }
+});
 
 let flashInterval = null;
 

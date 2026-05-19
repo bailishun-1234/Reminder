@@ -20,6 +20,9 @@ let currentActionItemId = null;  // 操作表单当前选中项
 // --- 初始化 ---
 async function init() {
   try {
+    // 显示构建版本
+    showVersion();
+
     // 加载数据
     allItems = await db.getAll();
     renderAll();
@@ -35,6 +38,8 @@ async function init() {
 
     // 提醒引擎
     reminder.start(handleReminder);
+    // 页面从后台恢复时，弹出暂存的提醒
+    reminder.onVisibilityChanged(handleReminder);
 
     // 列表点击事件（事件委托）
     document.getElementById('todoList').addEventListener('click', handleListClick);
@@ -70,6 +75,25 @@ async function init() {
   } catch (e) {
     console.error('初始化失败:', e);
   }
+}
+
+// --- 版本 ---
+const BUILD_TIME = '2026-05-20 12:00';
+
+function showVersion() {
+  const display = 'v' + BUILD_TIME.slice(5, 10) + ' ' + BUILD_TIME.slice(11);
+  let el = document.getElementById('versionDisplay');
+  // 旧缓存页面没有 #versionDisplay 时自动创建
+  if (!el) {
+    const right = document.querySelector('.header-right');
+    if (!right) return;
+    el = document.createElement('span');
+    el.id = 'versionDisplay';
+    el.className = 'header-version';
+    right.appendChild(el);
+  }
+  el.textContent = display;
+  el.title = '构建时间：' + BUILD_TIME;
 }
 
 // --- 时钟 ---
@@ -354,6 +378,35 @@ document.addEventListener('DOMContentLoaded', init);
 // 注册 Service Worker（系统通知唤醒、离线缓存）
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      // 每次加载检查 SW 更新（手机没有 Ctrl+F5）
+      reg.update();
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing || reg.waiting;
+        if (sw) {
+          sw.addEventListener('statechange', () => {
+            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+              // 新 SW 已安装，通知用户或自动刷新
+              reg.waiting?.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        }
+      });
+    }).catch(() => {});
+    // 监听 SW 控制权变更，自动刷新页面
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+    // 接收 SW 发来的消息
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'NEW_VERSION') {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      }
+    });
   });
 }
