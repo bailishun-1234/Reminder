@@ -18,6 +18,11 @@ let resolveCurrent = null;
  *   action: 'silent' | 'done' | 'snooze'
  */
 export function showReminderDialog(item, remindCount) {
+  // 每次弹提醒时请求通知权限（用户手势上下文中）
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
   return new Promise((resolve) => {
     currentItem = item;
     currentRemindCount = remindCount;

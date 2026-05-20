@@ -61,10 +61,16 @@ async function init() {
     };
     document.addEventListener('touchstart', firstTouch, { once: true });
     document.addEventListener('click', firstTouch, { once: true });
-    // 每次提醒弹窗交互时也重新激活音频通道
-    document.getElementById('remindSilent').addEventListener('click', () => audio.initOnUserGesture());
-    document.getElementById('remindDone').addEventListener('click', () => audio.initOnUserGesture());
-    document.getElementById('remindSnooze').addEventListener('click', () => audio.initOnUserGesture());
+    // 每次提醒弹窗交互时重新激活音频 + 请求通知权限
+    const permitAll = () => {
+      audio.initOnUserGesture();
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    };
+    document.getElementById('remindSilent').addEventListener('click', permitAll);
+    document.getElementById('remindDone').addEventListener('click', permitAll);
+    document.getElementById('remindSnooze').addEventListener('click', permitAll);
 
     // 刷新按钮
     document.getElementById('refreshBtn').addEventListener('click', () => {
