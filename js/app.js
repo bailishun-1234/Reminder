@@ -50,27 +50,8 @@ async function init() {
       btn.addEventListener('click', handleAction);
     });
 
-    // 用户首次手势：初始化音频 + 请求通知权限
-    const firstTouch = () => {
-      audio.initOnUserGesture();
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-      document.removeEventListener('touchstart', firstTouch);
-      document.removeEventListener('click', firstTouch);
-    };
-    document.addEventListener('touchstart', firstTouch, { once: true });
-    document.addEventListener('click', firstTouch, { once: true });
-    // 每次提醒弹窗交互时重新激活音频 + 请求通知权限
-    const permitAll = () => {
-      audio.initOnUserGesture();
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-    };
-    document.getElementById('remindSilent').addEventListener('click', permitAll);
-    document.getElementById('remindDone').addEventListener('click', permitAll);
-    document.getElementById('remindSnooze').addEventListener('click', permitAll);
+    // 通知权限管理
+    setupNotificationPermission();
 
     // 刷新按钮
     document.getElementById('refreshBtn').addEventListener('click', () => {
@@ -84,12 +65,18 @@ async function init() {
 }
 
 // --- 版本 ---
-const BUILD_TIME = '2026-05-20 12:00';
+const BUILD_TIME = '2026-05-20 18:20';
 
 function showVersion() {
-  const display = 'v' + BUILD_TIME.slice(5, 10) + ' ' + BUILD_TIME.slice(11);
+  // 优先取 meta 标签（HTML 不被 SW 缓存，总是最新）
+  let bt = BUILD_TIME;
+  const meta = document.querySelector('meta[name="build-time"]');
+  if (meta) {
+    const m = meta.getAttribute('content');
+    if (m) bt = m;
+  }
+  const display = 'v' + bt.slice(5, 10) + ' ' + bt.slice(11);
   let el = document.getElementById('versionDisplay');
-  // 旧缓存页面没有 #versionDisplay 时自动创建
   if (!el) {
     const right = document.querySelector('.header-right');
     if (!right) return;
@@ -99,7 +86,54 @@ function showVersion() {
     right.appendChild(el);
   }
   el.textContent = display;
-  el.title = '构建时间：' + BUILD_TIME;
+  el.title = '构建时间：' + bt;
+}
+
+// --- 通知权限管理 ---
+function setupNotificationPermission() {
+  if (!('Notification' in window)) return;
+
+  // 每次触摸都尝试请求权限（直到用户点允许或拒绝）
+  const req = () => {
+    if (Notification.permission === 'granted') return;
+    Notification.requestPermission().then(status => {
+      if (status === 'granted') {
+        hideNotifBanner();
+      }
+    });
+  };
+
+  // 显示提示条
+  if (Notification.permission === 'default') {
+    showNotifBanner(req);
+  }
+
+  // 全局触摸/点击都尝试
+  document.addEventListener('touchstart', req, { passive: true });
+  document.addEventListener('click', req);
+
+  // 提醒弹窗按钮也请求
+  const remindBtns = ['remindSilent', 'remindDone', 'remindSnooze'];
+  remindBtns.forEach(id => {
+    document.getElementById(id)?.addEventListener('click', req);
+  });
+}
+
+function showNotifBanner(reqFn) {
+  const existing = document.querySelector('.notif-banner');
+  if (existing) return;
+  const banner = document.createElement('div');
+  banner.className = 'notif-banner';
+  banner.innerHTML = '🔔 开启通知才能接收后台提醒';
+  const btn = document.createElement('button');
+  btn.textContent = '去开启';
+  btn.onclick = (e) => { e.stopPropagation(); reqFn(); };
+  banner.appendChild(btn);
+  document.getElementById('app-header')?.after(banner);
+}
+
+function hideNotifBanner() {
+  document.querySelector('.notif-banner')?.remove();
 }
 
 // --- 时钟 ---

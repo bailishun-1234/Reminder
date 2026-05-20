@@ -55,6 +55,31 @@ body {
   }
 }
 
+/* --- 通知权限提示条 --- */
+.notif-banner {
+  background: var(--accent);
+  color: #fff;
+  text-align: center;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.notif-banner button {
+  background: #fff;
+  color: var(--accent);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 /* --- Header --- */
 #app-header {
   background: var(--bg-secondary);
