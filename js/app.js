@@ -93,9 +93,10 @@ function showVersion() {
 function setupNotificationPermission() {
   if (!('Notification' in window)) return;
 
-  // 每次触摸都尝试请求权限（直到用户点允许或拒绝）
+  // 每次触摸都尝试请求权限（直到用户点允许）
   const req = () => {
     if (Notification.permission === 'granted') return;
+    if (Notification.permission === 'denied') return; // 已拒绝，需手动去设置开启
     Notification.requestPermission().then(status => {
       if (status === 'granted') {
         hideNotifBanner();
@@ -103,8 +104,8 @@ function setupNotificationPermission() {
     });
   };
 
-  // 显示提示条
-  if (Notification.permission === 'default') {
+  // 显示提示条（不论 default 还是 denied）
+  if (Notification.permission !== 'granted') {
     showNotifBanner(req);
   }
 
@@ -124,10 +125,20 @@ function showNotifBanner(reqFn) {
   if (existing) return;
   const banner = document.createElement('div');
   banner.className = 'notif-banner';
-  banner.innerHTML = '🔔 开启通知才能接收后台提醒';
   const btn = document.createElement('button');
-  btn.textContent = '去开启';
-  btn.onclick = (e) => { e.stopPropagation(); reqFn(); };
+
+  if (Notification.permission === 'denied') {
+    banner.innerHTML = '🔕 通知被屏蔽：Chrome 设置 → 网站设置 → 通知 → 改为"允许"';
+    btn.textContent = '已开启';
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      window.location.reload();
+    };
+  } else {
+    banner.innerHTML = '🔔 开启通知才能接收后台提醒';
+    btn.textContent = '去开启';
+    btn.onclick = (e) => { e.stopPropagation(); reqFn(); };
+  }
   banner.appendChild(btn);
   document.getElementById('app-header')?.after(banner);
 }
