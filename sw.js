@@ -79,7 +79,8 @@ function showNotification(item) {
     tag: 'reminder-' + item.id,
     renotify: true,
     requireInteraction: true,
-    vibrate: [200, 100, 200, 100, 500]
+    vibrate: [200, 100, 200, 100, 500],
+    icon: '/images/icons/icon-192.png'
   });
   // 更新数据库，避免每 15 秒重复弹通知
   updateReminderAfterNotify(item.id);
